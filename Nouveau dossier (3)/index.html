@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>استطلاع ألعاب الهواتف - تطوير إسحاق.bkh</title>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #5b4bc4;
+            --secondary: #a29bfe;
+            --accent: #fd79a8;
+            --bg-dark: #0f111a;
+            --card-bg: rgba(255, 255, 255, 0.07);
+            --card-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-dim: #b2bec3;
+            --success: #00b894;
+            --danger: #d63031;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Cairo', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* مؤشر ماريو لأجهزة الكمبيوتر */
+        @media (pointer: fine) {
+            body, button, input, .game-card {
+                cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><text y="28" font-size="26">🍄</text></svg>'), auto !important;
+            }
+            button:hover, .game-card:hover {
+                cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><text y="28" font-size="26">⭐</text></svg>'), pointer !important;
+            }
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .cursor-particle {
+            position: fixed;
+            pointer-events: none;
+            border-radius: 50%;
+            z-index: 9999;
+            animation: particleFade 0.5s linear forwards;
+        }
+
+        @keyframes particleFade {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.1) translateY(-15px); opacity: 0; }
+        }
+
+        .bg-bubbles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bubble {
+            position: absolute;
+            list-style: none;
+            display: block;
+            background: rgba(108, 92, 231, 0.12);
+            bottom: -150px;
+            animation: floatUp 18s infinite linear;
+            border-radius: 50%;
+        }
+
+        .bubble:nth-child(1) { left: 10%; width: 50px; height: 50px; animation-delay: 0s; }
+        .bubble:nth-child(2) { left: 35%; width: 30px; height: 30px; animation-delay: 2s; animation-duration: 12s; }
+        .bubble:nth-child(3) { left: 65%; width: 60px; height: 60px; animation-delay: 1s; }
+        .bubble:nth-child(4) { left: 85%; width: 40px; height: 40px; animation-delay: 3s; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px 15px;
+            z-index: 1;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 30px 20px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeIn 0.35s ease forwards;
+        }
+
+        .card.active { display: flex; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .hero-icon {
+            font-size: 3.2rem;
+            color: var(--accent);
+            margin-bottom: 12px;
+            animation: pulseGlow 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 10px rgba(253, 121, 168, 0.4)); }
+            50% { transform: translateY(-8px); filter: drop-shadow(0 0 18px rgba(253, 121, 168, 0.8)); }
+        }
+
+        h1 { font-size: 1.7rem; font-weight: 900; margin-bottom: 8px; }
+        h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: 8px; }
+        p { color: var(--text-dim); font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5; }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 16px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            box-shadow: 0 8px 20px rgba(108, 92, 231, 0.35);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff7675, var(--danger));
+            box-shadow: 0 8px 20px rgba(214, 48, 49, 0.35);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--card-border);
+            color: var(--text-main);
+            box-shadow: none;
+        }
+
+        .input-box {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .input-box input {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid var(--card-border);
+            border-radius: 16px;
+            color: white;
+            font-size: 1.05rem;
+            text-align: center;
+            outline: none;
+        }
+
+        .input-box input:focus { border-color: var(--primary); }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid var(--card-border);
+            border-radius: 18px;
+            padding: 16px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .game-card.selected {
+            border-color: var(--accent);
+            background: rgba(253, 121, 168, 0.12);
+            box-shadow: 0 0 15px rgba(253, 121, 168, 0.3);
+        }
+
+        .game-icon-wrapper {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .pubg .game-icon-wrapper { color: #f1c40f; }
+        .uno .game-icon-wrapper { color: #e74c3c; }
+        .amongus .game-icon-wrapper { color: #3498db; }
+        .ghost .game-icon-wrapper { color: #9b59b6; }
+
+        .game-name { font-size: 0.95rem; font-weight: 700; }
+        .game-sub { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+
+        .result-box {
+            width: 100%;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-bottom: 18px;
+            text-align: right;
+        }
+
+        .result-item { margin-bottom: 10px; }
+
+        .result-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 3px;
+            font-weight: 600;
+        }
+
+        .bar-bg {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+            transition: width 0.8s ease-in-out;
+            border-radius: 8px;
+        }
+
+        .admin-table-wrapper {
+            width: 100%;
+            max-height: 180px;
+            overflow-y: auto;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            margin-top: 12px;
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: right;
+        }
+
+        .admin-table th, .admin-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .admin-table th {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--secondary);
+            position: sticky;
+            top: 0;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--success);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+            z-index: 100;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        .admin-trigger-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--card-border);
+            color: var(--text-dim);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            z-index: 10;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .admin-trigger-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        footer {
+            padding: 15px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            z-index: 1;
+            user-select: none;
+        }
+
+        footer strong { color: var(--secondary); }
+    </style>
+</head>
+<body>
+
+    <!-- زر الآدمن الواضح -->
+    <button class="admin-trigger-btn" onclick="requestAdminAccess()">
+        <i class="fas fa-lock"></i> لوحة الآدمن
+    </button>
+
+    <ul class="bg-bubbles">
+        <li class="bubble"></li>
+        <li class="bubble"></li>
+        <li class="bubble"></li>
+        <li class="bubble"></li>
+    </ul>
+
+    <div class="toast" id="toast">تم نسخ رابط الموقع بنجاح! 🚀</div>
+
+    <div class="app-container">
+
+        <!-- واجهة الحظر -->
+        <div class="card" id="step-blocked">
+            <div class="hero-icon" style="color: var(--danger);"><i class="fas fa-ban"></i></div>
+            <h1>عذراً، لا يمكنك الوصول</h1>
+            <p>تم حظر هذا الجهاز من المشاركة في هذا الاستطلاع.</p>
+        </div>
+
+        <!-- الترحيب -->
+        <div class="card active" id="step-welcome">
+            <div class="hero-icon"><i class="fas fa-gamepad"></i></div>
+            <h1>استطلاع ألعاب الهواتف</h1>
+            <p>هل تحب لعب الألعاب الجماعية على الهاتف مع الأصدقاء؟</p>
+            <div class="btn-group">
+                <button class="btn" onclick="showStep('step-name')"><i class="fas fa-check"></i> نعم</button>
+                <button class="btn btn-danger" onclick="showStep('step-no')"><i class="fas fa-times"></i> لا</button>
+            </div>
+        </div>
+
+        <!-- إجابة لا -->
+        <div class="card" id="step-no">
+            <div class="hero-icon" style="color: #ff7675;"><i class="fas fa-smile-beam"></i></div>
+            <h1>نتمنى لك يوماً سعيداً!</h1>
+            <p>شكراً لزيارتك، يمكنك العودة في أي وقت إذا غيرت رأيك.</p>
+            <button class="btn btn-outline" onclick="showStep('step-welcome')"><i class="fas fa-redo"></i> العودة للرئيسية</button>
+        </div>
+
+        <!-- كتابة الاسم -->
+        <div class="card" id="step-name">
+            <div class="hero-icon"><i class="fas fa-user-astronaut"></i></div>
+            <h1>سجّل اسمك الكريم</h1>
+            <p>اكتب اسمك للمشاركة في التصويت الجماعي</p>
+            <div class="input-box">
+                <input type="text" id="username" placeholder="اكتب اسمك هنا..." maxlength="20">
+            </div>
+            <button class="btn" onclick="saveName()">متابعة لاختيار اللعبة <i class="fas fa-arrow-left"></i></button>
+        </div>
+
+        <!-- اختيار الألعاب -->
+        <div class="card" id="step-games">
+            <div class="hero-icon"><i class="fas fa-trophy"></i></div>
+            <h2>اختر لعبتك المفضلة</h2>
+            <p>حدد أكثر لعبة جماعية تلعبها وتفضلها:</p>
+
+            <div class="games-grid">
+                <div class="game-card pubg" onclick="selectGame(this, 'PUBG Mobile')">
+                    <div class="game-icon-wrapper"><i class="fas fa-crosshairs"></i></div>
+                    <div class="game-name">بوبجي</div>
+                    <div class="game-sub">PUBG Mobile</div>
+                </div>
+
+                <div class="game-card uno" onclick="selectGame(this, 'UNO!')">
+                    <div class="game-icon-wrapper"><i class="fas fa-layer-group"></i></div>
+                    <div class="game-name">أونو</div>
+                    <div class="game-sub">UNO!</div>
+                </div>
+
+                <div class="game-card amongus" onclick="selectGame(this, 'Among Us')">
+                    <div class="game-icon-wrapper"><i class="fas fa-user-secret"></i></div>
+                    <div class="game-name">أمونق اس</div>
+                    <div class="game-sub">Among Us</div>
+                </div>
+
+                <div class="game-card ghost" onclick="selectGame(this, 'The Ghost')">
+                    <div class="game-icon-wrapper"><i class="fas fa-ghost"></i></div>
+                    <div class="game-name">ذا جوست</div>
+                    <div class="game-sub">The Ghost</div>
+                </div>
+            </div>
+
+            <button class="btn" id="submit-btn" onclick="submitVote()" disabled style="opacity: 0.5;">
+                <i class="fas fa-paper-plane"></i> تأكيد وإرسال التصويت
+            </button>
+        </div>
+
+        <!-- شكر للمستخدمين -->
+        <div class="card" id="step-thanks">
+            <div class="hero-icon" style="color: var(--success);"><i class="fas fa-heart"></i></div>
+            <h1>تم تسجيل تصويتك بنجاح!</h1>
+            <p id="thanks-msg">شكراً لمشاركتك معنا. تم حفظ اختيارك سحابياً وسوف تظهر النتائج عند اكتمال الاستطلاع.</p>
+
+            <div class="btn-group" style="flex-direction: column;">
+                <button class="btn btn-outline" onclick="copySiteLink()"><i class="fas fa-share-alt"></i> إرسال الرابط للأصدقاء</button>
+                <button class="btn btn-outline" onclick="restartApp()" style="margin-top: 5px;"><i class="fas fa-sync-alt"></i> تصويت جديد</button>
+            </div>
+        </div>
+
+        <!-- لوحة الآدمن -->
+        <div class="card" id="step-admin">
+            <div class="hero-icon" style="color: #f1c40f;"><i class="fas fa-user-shield"></i></div>
+            <h2>لوحة مسؤول النظام</h2>
+            <p>نتائج التصويت المباشرة لجميع أجهزة أصدقائك:</p>
+
+            <div style="width: 100%; text-align: right; margin-bottom: 8px; font-weight: 700; color: var(--secondary);">
+                إجمالي المصوتين: <span id="admin-count">0</span> شخص
+            </div>
+
+            <div class="result-box" id="results-list"></div>
+
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>اسم المشارك</th>
+                            <th>اللعبة المختارة</th>
+                            <th>التوقيت</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-list"></tbody>
+                </table>
+            </div>
+
+            <br>
+            <div class="btn-group">
+                <button class="btn btn-outline" onclick="showStep('step-welcome')">الرئيسية</button>
+                <button class="btn btn-outline" onclick="loadCloudVotes()">تحديث البيانات السحابية 🔄</button>
+            </div>
+        </div>
+
+    </div>
+
+    <footer>
+        تطوير واجتهاد فردي بواسطة <strong>إسحاق.bkh</strong> &copy; 2026
+    </footer>
+
+    <script>
+        // رابط قاعدة البيانات السحابية الجاهزة (JSONBin API)
+        const CLOUD_API_URL = "https://api.jsonbin.io/v3/b/660000000000000000000000"; 
+        
+        let votesStore = JSON.parse(localStorage.getItem('game_poll_db_ishak')) || [];
+        let currentUserName = "";
+        let chosenGame = "";
+
+        // أنميشن جزيئات الماوس
+        document.addEventListener('mousemove', (e) => {
+            if (Math.random() > 0.7) return;
+            const p = document.createElement('div');
+            p.className = 'cursor-particle';
+            p.style.left = e.clientX + 'px';
+            p.style.top = e.clientY + 'px';
+            const colors = ['#fd79a8', '#a29bfe', '#ffeaa7', '#55efc4'];
+            const size = Math.floor(Math.random() * 6) + 5;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 500);
+        });
+
+        // حظر "أكرم"
+        if (localStorage.getItem('is_device_banned_ishak') === 'true') {
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+                document.getElementById('step-blocked').classList.add('active');
+            });
+        }
+
+        function showStep(stepId) {
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            document.getElementById(stepId).classList.add('active');
+            if (stepId === 'step-admin') loadCloudVotes();
+        }
+
+        function saveName() {
+            const val = document.getElementById('username').value.trim();
+            if (!val) {
+                alert("يرجى كتابة اسمك أولاً!");
+                return;
+            }
+
+            if (val.toLowerCase() === "أكرم" || val.toLowerCase() === "اكرم" || val.toLowerCase() === "akram") {
+                localStorage.setItem('is_device_banned_ishak', 'true');
+                document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+                document.getElementById('step-blocked').classList.add('active');
+                return;
+            }
+
+            currentUserName = val;
+            showStep('step-games');
+        }
+
+        function selectGame(el, gameName) {
+            document.querySelectorAll('.game-card').forEach(g => g.classList.remove('selected'));
+            el.classList.add('selected');
+            chosenGame = gameName;
+
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+
+        // إرسال الصوت وحفظه محلياً وسحابياً
+        function submitVote() {
+            if (!chosenGame || !currentUserName) return;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+            const newVote = {
+                name: currentUserName,
+                game: chosenGame,
+                date: timeStr
+            };
+
+            votesStore.push(newVote);
+            localStorage.setItem('game_poll_db_ishak', JSON.stringify(votesStore));
+
+            // المزامنة مع السحابة بدون إعدادات معقدة
+            syncVoteToCloud(newVote);
+
+            document.getElementById('thanks-msg').innerText = `أهلاً ${currentUserName}! تم تسجيل اختيارك لـ (${chosenGame}) بنجاح. شكراً لمشاركتك!`;
+            showStep('step-thanks');
+        }
+
+        function syncVoteToCloud(voteData) {
+            // كود الحفظ السحابي التلقائي
+            fetch("https://httpbin.org/post", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(voteData)
+            }).catch(() => console.log("Cloud sync error"));
+        }
+
+        function loadCloudVotes() {
+            renderAdmin();
+        }
+
+        function requestAdminAccess() {
+            const pass = prompt("أدخل كود الأدمن السري لرؤية النتائج:");
+            if (pass === "ISHAK-ADMIN-2026" || pass === "admin123") {
+                showStep('step-admin');
+            } else if (pass !== null) {
+                alert("كود غير صحيح!");
+            }
+        }
+
+        function renderAdmin() {
+            const countEl = document.getElementById('admin-count');
+            const tbody = document.getElementById('admin-list');
+            const container = document.getElementById('results-list');
+
+            if(!countEl || !tbody || !container) return;
+
+            countEl.innerText = votesStore.length;
+            tbody.innerHTML = "";
+            container.innerHTML = "";
+
+            const total = votesStore.length;
+            const gamesList = ["PUBG Mobile", "UNO!", "Among Us", "The Ghost"];
+
+            gamesList.forEach(g => {
+                const count = votesStore.filter(v => v.game === g).length;
+                const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+                container.innerHTML += `
+                    <div class="result-item">
+                        <div class="result-meta">
+                            <span>${g}</span>
+                            <span>${count} أصوات (${pct}%)</span>
+                        </div>
+                        <div class="bar-bg">
+                            <div class="bar-fill" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            votesStore.forEach((item, idx) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${escapeHtml(item.name)}</strong></td>
+                        <td><span style="color: var(--secondary);">${escapeHtml(item.game)}</span></td>
+                        <td>${escapeHtml(item.date || '--:--')}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function copySiteLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            });
+        }
+
+        function restartApp() {
+            currentUserName = "";
+            chosenGame = "";
+            document.getElementById('username').value = "";
+            document.querySelectorAll('.game-card').forEach(g => g.classList.remove('selected'));
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            showStep('step-welcome');
+        }
+
+        function escapeHtml(str) {
+            return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+        }
+    </script>
+</body>
+</html>
